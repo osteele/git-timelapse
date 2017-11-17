@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+require 'fileutils'
+require 'open3'
+require 'optparse'
+require 'shellwords'
+require 'time'
+require 'tmpdir'
+
+files = ARGV
+cmd = []
+if files.include?('--')
+    i = files.index('--')
+    cmd = files.drop(i+1)
+    files = files.take(i)
+end
+
+saved_hash = `git log --format=%H -n 1`.chomp
+puts "Saved git HEAD #{saved_hash}"
+
+at_exit do
+    puts "Restoring original git HEAD #{saved_hash}"
+    system "git checkout #{saved_hash}"
+end
+
+build_dir = 'git-each-build'
+FileUtils.rm_rf build_dir
+FileUtils.mkdir build_dir
+
+for h, d in `git log --follow --format='%H %aI' --date=iso #{Shellwords.join files}`.scan /^(\S+) (.+)$/ do
+    tmp_build_dir = Dir.mktmpdir
+    puts "Checking out HEAD For #{Time.parse(d)}"
+    system "git checkout #{h}"
+    # system "bundle exec jekyll build"
+    ENV['GIT_EACH_HASH'] = h
+    ENV['GIT_EACH_BUILD_DIR'] = tmp_build_dir
+    system "#{Shellwords.join cmd}"
+    # FileUtils.cp '_site/resources/index.html', tmp_build_dir
+    FileUtils.mv tmp_build_dir, File.join(build_dir, d)
+end
+
+puts "Results are in #{build_dir}"
+
+at_exit do
+    puts "Results are in #{build_dir}"
+end
+

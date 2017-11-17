@@ -1,0 +1,5 @@
+#!/usr/bin/env bash -eu
+
+bundle exec jekyll build
+echo cp -r "_site/$1" "$GIT_EACH_BUILD_DIR"
+cp -r "_site/$1" "$GIT_EACH_BUILD_DIR"

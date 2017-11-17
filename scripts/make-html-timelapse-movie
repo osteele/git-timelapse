@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+# add border?
+
+from fractions import gcd
+import math
+import os
+from glob import glob
+
+import numpy
+from PIL import Image, ImageChops
+
+in_dir = 'page-images'
+out_dir = 'frames'
+
+WHITE = (255, 255, 255)
+movie_width, movie_height = 1024, 768
+linger = 10
+interpolate = 10
+
+os.makedirs(out_dir, exist_ok=True)
+
+def make_frame(im, cols):
+    w, h = im.size
+    frame = Image.new(im.mode, (movie_width * cols, movie_height * cols), color=WHITE)
+    x = 0
+    y = 0
+    for i in range(cols):
+        if y > h and cols > 1:
+            return make_frame(im, cols - 1)
+        hh = frame.size[1]
+        b = min(y + hh, h)
+        region = im.crop((0, y, w, b))
+        frame.paste(region, ((x, 0, x+w, b - y)))
+        x += w
+        y += hh
+    return frame
+
+def make_frames(files):
+    for infile in files:
+        im = Image.open(infile)
+
+        bg = Image.new(im.mode, im.size, WHITE)
+        diff = ImageChops.difference(im, bg)
+        bbox = diff.getbbox()
+        if bbox:
+            im = im.crop(bbox)
+
+        w, h = im.size
+        cols = math.ceil(math.sqrt(h / movie_height))
+        frame = make_frame(im, cols)
+        yield frame
+
+def interpolate_frames(frames):
+    f0 = None
+    for frame in frames:
+        if f0:
+            f1 = frame
+            if f0.size != f1.size:
+                w0, w1 = f0.size[0], f1.size[0]
+                h0, h1 = f0.size[1], f1.size[1]
+                w = int(w0 * w1 / gcd(w0, w1))
+                h = int(h0 * w1 / gcd(w0, w1))
+                f0 = f0.resize((w, h), Image.ANTIALIAS)
+                f1 = f1.resize((w, h), Image.ANTIALIAS)
+            for i in range(interpolate):
+                f = 1.0 - i / interpolate
+                pix = f * numpy.asarray(f0) + (1 - f) * numpy.asarray(f1)
+                yield Image.fromarray(numpy.uint8(pix))
+        f0 = frame
+        for _ in range(linger):
+            yield frame
+
+files = sorted(glob('page-images/*.png'))
+for i, frame in enumerate(interpolate_frames(make_frames(files))):
+    outfile = os.path.join(out_dir, "frame-{:03d}.tiff".format(i))
+    print('Write', outfile)
+    frame.save(outfile)

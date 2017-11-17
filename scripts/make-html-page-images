@@ -1,0 +1,14 @@
+#!/usr/bin/env bash -eu
+
+FILES="$@"
+TPL=page-images/image-%02d.png
+
+mkdir -p index-images
+i=0
+for file in $FILES; do
+  printf -v out "$TPL" $i
+  mkdir -p $(dirname $out)
+  echo "Convert $file -> $out..."
+  wkhtmltoimage -q "$file" "$out" || echo "Failed to convert $file"
+  i=$((i+1))
+done

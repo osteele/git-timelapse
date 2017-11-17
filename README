@@ -1,0 +1,40 @@
+# git-timelapse
+
+Tools for building time-lapse movies of git projects.
+
+Status: Not ready for prime time. Some names are hardwired (contra the documentation); few errors are handled.
+
+## `git-each-build FILENAME... -- COMMAND ARGS...`
+
+Check out each commit that adds or modifies filename, and run `COMMAND ARGS...`.
+
+`COMMAND` is run with environment variables GIT_EACH_HASH and GIT_EACH_BUILD_DIR.
+It should place output files in $GIT_EACH_BUILD_DIR.
+
+Files are collected into subdirectories `git-each-build/$isodate`, where `$isodate` is the ISO datetime of the commit.
+
+Example: `git-each-build page/resources.md -- snapshot-jekyll-page resources`
+
+Requirements: Ruby
+
+## `make-html-page-images PATTERN HTML_PAGES`
+
+Convert the pages in HTML_PAGES into image files.
+
+Example: `make-html-page-images git-each-build/*/resources/index.html pages/image-%02d.png`
+
+Requirements: Install imgkit from <https://wkhtmltopdf.org/downloads.html>
+
+## `make-html-timelapse-movie`
+
+Requirements: Python, `pip -f requirements.txt`
+
+Afterwards:
+
+```bash
+ffmpeg -r 5 -i frames/frame-%03d.tiff -pix_fmt yuv420p -y out.mp4
+```
+
+# License
+
+MIT
