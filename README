@@ -1,19 +1,34 @@
-# git-timelapse
+# Git Time-Lapse Tools
 
 Tools for building time-lapse movies of git projects.
 
 Status: Not ready for prime time. Some names are hardwired (contra the documentation); few errors are handled.
 
-## `git-each-build FILENAME... -- COMMAND ARGS...`
+## `git-each-build [--dir DIR] [FILENAMES...] -- COMMAND ARGS...`
 
-Check out each commit that adds or modifies filename, and run `COMMAND ARGS...`.
+Run `COMMAND ARGS...` against each commit in the repo whose working directory is `DIR`.
+Results are accumulated into `./git-each-build`.
+
+`DIR` defaults to the current directory.
+
+Each commit is checked out to `DIR`.
+On completion, `DIR` is restored to whatever commit it was originally set to.
+
+If `FILENAMES` is supplied, only commits that mention a file in FILENAMES are checked out.
 
 `COMMAND` is run with environment variables GIT_EACH_HASH and GIT_EACH_BUILD_DIR.
-It should place output files in $GIT_EACH_BUILD_DIR.
+Its standard output is placed in `$GIT_EACH_BUILD_DIR/stdout.txt`.
+It should place additional output files in $GIT_EACH_BUILD_DIR.
 
-Files are collected into subdirectories `git-each-build/$isodate`, where `$isodate` is the ISO datetime of the commit.
+Output files are collected into subdirectories `git-each-build/$isodate`, where `$isodate` is the ISO datetime of the commit.
 
-Example: `git-each-build page/resources.md -- snapshot-jekyll-page resources`
+Examples:
+
+`git-each-build -- tree`
+
+`git-each-build -- cloc`
+
+`git-each-build page/resources.md -- snapshot-jekyll-page resources`
 
 Requirements: Ruby
 
@@ -35,6 +50,15 @@ Afterwards:
 ffmpeg -r 5 -i frames/frame-%03d.tiff -pix_fmt yuv420p -y out.mp4
 ```
 
-# License
+## Related
+
+`git-each-build` is vaguely like [git-filter-branch](https://git-scm.com/docs/git-filter-branch),
+except it accumulates outputs instead of re-writing the tree.
+
+The [git-time-machine](https://atom.io/packages/git-time-machine) Atom plugin displays an interactive commit plot for a single file.
+
+[Git Time-Lapse View](https://github.com/JonathanAquino/git-time-lapse-view) is a Java program that lets you scroll through revisions.
+
+## License
 
 MIT

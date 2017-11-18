@@ -1,8 +1,16 @@
-* un-hardwire the names
-* error handling
-* master script, or Rakefile, to run the whole pipeline
-* parameterize the interpolate and linger lengths
-* compute interpolate and linger lengths to target time length
+git-each-commit:
+* follow multiple files
+* refuse to check out over modified working directory
+* flatten output directory if single file
+
+movies:
 * add a margin
 * skip or fast-forward through nearly similar frames
 * animate change from n -> n+1 columns
+* compute interpolate and linger lengths to target time length
+* parameterize the interpolate and linger lengths
+
+all:
+* un-hardwire the names
+* error handling
+* master script, or Rakefile, to run the whole pipeline
