@@ -16,6 +16,7 @@ import io
 import math
 import os
 import re
+import shlex
 import shutil
 from fractions import gcd
 from glob import glob
@@ -33,20 +34,23 @@ WHITE = (255, 255, 255)
 movie_width, movie_height = 1024, 768
 
 def make_frame(im, cols):
-    w, h = im.size
-    frame = Image.new(im.mode, (movie_width * cols, movie_height * cols), color=WHITE)
-    x = 0
-    y = 0
-    for i in range(cols):
-        if y > h and cols > 1:
+    source_width, source_height = im.size
+    dest_frame = Image.new(im.mode, (movie_width * cols, movie_height * cols), color=WHITE)
+    col_width = source_width
+    col_height = dest_frame.size[1]
+    source_tile_y = 0
+    dest_tile_x = 0
+    for col in range(cols):
+        if source_tile_y > source_height and cols > 1:
+            # Starting a new column while out of source material.
+            # We could have gotten by with one fewer columns.
             return make_frame(im, cols - 1)
-        hh = frame.size[1]
-        b = min(y + hh, h)
-        region = im.crop((0, y, w, b))
-        frame.paste(region, ((x, 0, x+w, b - y)))
-        x += w
-        y += hh
-    return frame
+        source_bottom = min(source_tile_y + col_height, source_height)
+        region = im.crop((0, source_tile_y, source_width, source_bottom))
+        dest_frame.paste(region, ((dest_tile_x, 0, dest_tile_x + col_width, source_bottom - source_tile_y)))
+        dest_tile_x += col_width
+        source_tile_y = source_bottom
+    return dest_frame
 
 def text_file_to_image(infile):
     lexer = pygments.lexers.get_lexer_for_filename(infile)
@@ -113,6 +117,7 @@ def convert(source_dir, frame_dir='frames', **kwargs):
         outfile = os.path.join(frame_dir, "frame-{:03d}.tiff".format(i))
         print('Writing', outfile)
         frame.save(outfile)
+    os.system(f"ffmpeg -r 5 -i {shlex.quote(os.path.join(frame_dir, 'frame-%03d.tiff'))} -pix_fmt yuv420p -y timelapse.mp4")
 
 if __name__ == '__main__':
     args = docopt(__doc__)
