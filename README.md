@@ -26,11 +26,21 @@ Examples:
 
 `git-each-build -- tree`
 
-`git-each-build -- cloc`
+`git-each-build -- cloc .`
 
 `git-each-build page/resources.md -- snapshot-jekyll-page resources`
 
+If each build subdirectory contains only a single file (for example, `stdout.txt`),
+you can flatten it in bash via:
+
+    mmv 'git-each-build/*/stdout.txt' git-each-build//#1.txt
+    find git-each-build -type d -empty -delete
+
 Requirements: Ruby
+
+## `rm-consecutive-dups`
+
+Example: `rm-consecutive-dups git-each-build`
 
 ## `make-html-page-images PATTERN HTML_PAGES`
 

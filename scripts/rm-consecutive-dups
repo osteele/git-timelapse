@@ -1,0 +1,12 @@
+#!/usr/bin/env bash -eu
+
+prev=
+for file in $1/*; do
+    if [[ -d "$file" ]]; then
+        hash=$(cd "$file" && find . -type f -exec md5sum {} \+ | md5sum | cut -f1 -d' ')
+    else
+        hash=$(md5sum "$file" | cut -f1 -d' ')
+    fi
+    [ "$hash" == "$prev" ] && rm -rf $file
+    prev=$hash
+done
