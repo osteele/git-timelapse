@@ -7,7 +7,6 @@ make-html-timelapse-movie:
 * BUG not enough columns
 * create the movie once done
 * add CLI options
-* rename this script
 * add a margin
 * skip or fast-forward through nearly similar frames
 * animate change from n -> n+1 columns

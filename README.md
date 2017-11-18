@@ -50,7 +50,7 @@ Example: `make-html-page-images git-each-build/*/resources/index.html pages/imag
 
 Requirements: Install imgkit from <https://wkhtmltopdf.org/downloads.html>
 
-## `make-html-timelapse-movie`
+## `make-timelapse-movie`
 
 Requirements: Python, `pip -f requirements.txt`
 
