@@ -1,23 +1,29 @@
 #!/usr/bin/env python
 
-# add border?
-
-from fractions import gcd
+import io
 import math
 import os
+import shutil
+from fractions import gcd
 from glob import glob
 
 import numpy
+import pygments
+import pygments.lexers
+import pygments.formatters
 from PIL import Image, ImageChops
 
-in_dir = 'page-images'
+# in_dir = 'page-images'
+in_dir = 'git-each-build'
 out_dir = 'frames'
 
 WHITE = (255, 255, 255)
 movie_width, movie_height = 1024, 768
 linger = 10
 interpolate = 10
+linger, interpolate = 1, 0
 
+shutil.rmtree(out_dir)
 os.makedirs(out_dir, exist_ok=True)
 
 def make_frame(im, cols):
@@ -36,43 +42,66 @@ def make_frame(im, cols):
         y += hh
     return frame
 
+def text_file_to_image(infile):
+    lexer = pygments.lexers.get_lexer_for_filename(infile)
+    # formatter = pygments.formatters.get_formatter_for_filename('out.tiff')
+    formatter = pygments.formatters.get_formatter_by_name('bmp')
+    with open(infile) as fd:
+        data = pygments.highlight(fd.read(), lexer, formatter)
+    return Image.open(io.BytesIO(data))
+
+def read_file_image(infile):
+    try:
+        return Image.open(infile)
+    except OSError as e:
+        if 'cannot identify image file' not in str(e):
+            raise e
+        return text_file_to_image(infile)
+
+def cropped(im):
+    bg = Image.new(im.mode, im.size, WHITE)
+    diff = ImageChops.difference(im, bg)
+    bbox = diff.getbbox()
+    if bbox:
+        return im.crop(bbox)
+    return im
+
 def make_frames(files):
     for infile in files:
-        im = Image.open(infile)
-
-        bg = Image.new(im.mode, im.size, WHITE)
-        diff = ImageChops.difference(im, bg)
-        bbox = diff.getbbox()
-        if bbox:
-            im = im.crop(bbox)
-
+        im = cropped(read_file_image(infile))
         w, h = im.size
         cols = math.ceil(math.sqrt(h / movie_height))
         frame = make_frame(im, cols)
         yield frame
 
+def resize_images_to_lcm(im0, im1):
+    if im0.size == im1.size:
+        return im0, im1
+    w0, w1 = im0.size[0], im1.size[0]
+    h0, h1 = im0.size[1], im1.size[1]
+    s = w1 / gcd(gcd(w0, w1), gcd(h0, h1))
+    w = int(s * w0)
+    h = int(s * h0)
+    size = (w, h)
+    im0 = im0.resize(size, Image.ANTIALIAS)
+    im1 = im1.resize(size, Image.ANTIALIAS)
+    return im0, im1
+
 def interpolate_frames(frames):
-    f0 = None
+    prev_frame = None
     for frame in frames:
-        if f0:
-            f1 = frame
-            if f0.size != f1.size:
-                w0, w1 = f0.size[0], f1.size[0]
-                h0, h1 = f0.size[1], f1.size[1]
-                w = int(w0 * w1 / gcd(w0, w1))
-                h = int(h0 * w1 / gcd(w0, w1))
-                f0 = f0.resize((w, h), Image.ANTIALIAS)
-                f1 = f1.resize((w, h), Image.ANTIALIAS)
+        if prev_frame:
+            im0, im1 = resize_images_to_lcm(prev_frame, frame)
             for i in range(interpolate):
-                f = 1.0 - i / interpolate
-                pix = f * numpy.asarray(f0) + (1 - f) * numpy.asarray(f1)
-                yield Image.fromarray(numpy.uint8(pix))
-        f0 = frame
+                s = i / interpolate
+                ar = (1.0 - s) * numpy.asarray(im0) + s * numpy.asarray(im1)
+                yield Image.fromarray(numpy.uint8(ar))
         for _ in range(linger):
             yield frame
+        prev_frame = frame
 
-files = sorted(glob('page-images/*.png'))
+files = sorted(glob(os.path.join(in_dir, '*')))
 for i, frame in enumerate(interpolate_frames(make_frames(files))):
     outfile = os.path.join(out_dir, "frame-{:03d}.tiff".format(i))
-    print('Write', outfile)
+    print('Writing', outfile)
     frame.save(outfile)

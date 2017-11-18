@@ -3,14 +3,16 @@ git-each-commit:
 * refuse to check out over modified working directory
 * flatten output directory if single file
 
-movies:
+make-html-timelapse-movie:
+* BUG not enough columns
+* create the movie once done
+* add CLI options
+* rename this script
 * add a margin
 * skip or fast-forward through nearly similar frames
 * animate change from n -> n+1 columns
 * compute interpolate and linger lengths to target time length
-* parameterize the interpolate and linger lengths
 
 all:
-* un-hardwire the names
 * error handling
 * master script, or Rakefile, to run the whole pipeline
