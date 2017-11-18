@@ -33,28 +33,9 @@ WHITE = (255, 255, 255)
 
 movie_width, movie_height = 1024, 768
 
-def make_frame(im, cols):
-    source_width, source_height = im.size
-    dest_frame = Image.new(im.mode, (movie_width * cols, movie_height * cols), color=WHITE)
-    col_width = source_width
-    col_height = dest_frame.size[1]
-    source_tile_y = 0
-    dest_tile_x = 0
-    for col in range(cols):
-        if source_tile_y > source_height and cols > 1:
-            # Starting a new column while out of source material.
-            # We could have gotten by with one fewer columns.
-            return make_frame(im, cols - 1)
-        source_bottom = min(source_tile_y + col_height, source_height)
-        region = im.crop((0, source_tile_y, source_width, source_bottom))
-        dest_frame.paste(region, ((dest_tile_x, 0, dest_tile_x + col_width, source_bottom - source_tile_y)))
-        dest_tile_x += col_width
-        source_tile_y = source_bottom
-    return dest_frame
-
 def text_file_to_image(infile):
     lexer = pygments.lexers.get_lexer_for_filename(infile)
-    formatter = pygments.formatters.get_formatter_by_name('bmp')
+    formatter = pygments.formatters.get_formatter_by_name('bmp', line_numbers=False)
     with open(infile) as fd:
         data = pygments.highlight(fd.read(), lexer, formatter)
     return Image.open(io.BytesIO(data))
@@ -74,6 +55,25 @@ def cropped(im):
     if bbox:
         return im.crop(bbox)
     return im
+
+def make_frame(im, cols):
+    source_width, source_height = im.size
+    dest_frame = Image.new(im.mode, (movie_width * cols, movie_height * cols), color=WHITE)
+    col_width = source_width
+    col_height = dest_frame.size[1]
+    source_tile_y = 0
+    dest_tile_x = 0
+    for col in range(cols):
+        if source_tile_y > source_height and cols > 1:
+            # Starting a new column while out of source material.
+            # We could have gotten by with one fewer columns.
+            return make_frame(im, cols - 1)
+        source_bottom = min(source_tile_y + col_height, source_height)
+        region = im.crop((0, source_tile_y, source_width, source_bottom))
+        dest_frame.paste(region, ((dest_tile_x, 0, dest_tile_x + col_width, source_bottom - source_tile_y)))
+        dest_tile_x += col_width
+        source_tile_y = source_bottom
+    return dest_frame
 
 def make_frames(files):
     for infile in files:
