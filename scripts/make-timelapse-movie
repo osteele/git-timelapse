@@ -1,8 +1,21 @@
 #!/usr/bin/env python
+"""
+Make timelapse movie from image frames or text or script versions.
+
+Usage:
+  make-timelapse-movie SOURCE_DIR [--frame-dir=DIR] [--linger=N] [--interpolate=N]
+
+Options:
+  -h --help        Show this screen.
+  --frame-dir DIR  Store frames in this directory [default: frames].
+  --linger=n       Repeat keyframe images this many times before moving on [default: 1].
+  --interpolate=n  Add this many interpolation frames between keyframes [default: 0].
+"""
 
 import io
 import math
 import os
+import re
 import shutil
 from fractions import gcd
 from glob import glob
@@ -11,20 +24,13 @@ import numpy
 import pygments
 import pygments.lexers
 import pygments.formatters
+from docopt import docopt
 from PIL import Image, ImageChops
-
-# in_dir = 'page-images'
-in_dir = 'git-each-build'
-out_dir = 'frames'
+from schema import Schema, And, Or, Use, SchemaError
 
 WHITE = (255, 255, 255)
-movie_width, movie_height = 1024, 768
-linger = 10
-interpolate = 10
-linger, interpolate = 1, 0
 
-shutil.rmtree(out_dir)
-os.makedirs(out_dir, exist_ok=True)
+movie_width, movie_height = 1024, 768
 
 def make_frame(im, cols):
     w, h = im.size
@@ -44,7 +50,6 @@ def make_frame(im, cols):
 
 def text_file_to_image(infile):
     lexer = pygments.lexers.get_lexer_for_filename(infile)
-    # formatter = pygments.formatters.get_formatter_for_filename('out.tiff')
     formatter = pygments.formatters.get_formatter_by_name('bmp')
     with open(infile) as fd:
         data = pygments.highlight(fd.read(), lexer, formatter)
@@ -87,7 +92,7 @@ def resize_images_to_lcm(im0, im1):
     im1 = im1.resize(size, Image.ANTIALIAS)
     return im0, im1
 
-def interpolate_frames(frames):
+def interpolate_frames(frames, *, interpolate=0, linger=1, **kwargs):
     prev_frame = None
     for frame in frames:
         if prev_frame:
@@ -100,8 +105,26 @@ def interpolate_frames(frames):
             yield frame
         prev_frame = frame
 
-files = sorted(glob(os.path.join(in_dir, '*')))
-for i, frame in enumerate(interpolate_frames(make_frames(files))):
-    outfile = os.path.join(out_dir, "frame-{:03d}.tiff".format(i))
-    print('Writing', outfile)
-    frame.save(outfile)
+def convert(source_dir, frame_dir='frames', **kwargs):
+    shutil.rmtree(frame_dir)
+    os.makedirs(frame_dir, exist_ok=True)
+    files = sorted(glob(os.path.join(source_dir, '*')))
+    for i, frame in enumerate(interpolate_frames(make_frames(files), **kwargs)):
+        outfile = os.path.join(frame_dir, "frame-{:03d}.tiff".format(i))
+        print('Writing', outfile)
+        frame.save(outfile)
+
+if __name__ == '__main__':
+    args = docopt(__doc__)
+    schema = Schema({
+        'SOURCE_DIR': And(os.path.exists, error='SOURCE_DIR should be a directory'),
+        '--frame-dir': str,
+        '--interpolate': Use(int),
+        '--linger': Use(int),
+    })
+    try:
+        args = schema.validate(args)
+    except SchemaError as e:
+        exit(e)
+    args = {re.sub(r'^--', '', k): v for k, v in args.items()}
+    convert(args['SOURCE_DIR'], **args)

@@ -54,6 +54,8 @@ Requirements: Install imgkit from <https://wkhtmltopdf.org/downloads.html>
 
 Requirements: Python, `pip -f requirements.txt`
 
+Example: `make-timelapse-movie git-each-build`
+
 Afterwards:
 
 ```bash
