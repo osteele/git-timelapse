@@ -117,13 +117,18 @@ def make_movie(source_dir, frame_dir='frames', interpolate=0, linger=1, **kwargs
     shutil.rmtree(frame_dir)
     os.makedirs(frame_dir, exist_ok=True)
     files = sorted(glob(os.path.join(source_dir, '*')))
-    print(f"Reading {len(files)} key frames; writing {len(files) * (interpolate + linger) - interpolate} output frames")
+    out_count = len(files) * (interpolate + linger) - interpolate
+    frame_pattern = os.path.join(frame_dir, "frame-{:03d}.tiff")
+    assert out_count < 1000 # TODO adapt frame_pattern padding
+    print(f"Reading {len(files)} key frames; writing {out_count} output frames")
     t = tqdm(files)
     for i, frame in enumerate((interpolate_frames(iter_file_images(t), **kwargs))):
-        outfile = os.path.join(frame_dir, "frame-{:03d}.tiff".format(i))
+        outfile = frame_pattern.format(i)
         t.set_postfix(out=outfile)
         frame.save(outfile)
-    os.system(f"ffmpeg -r 5 -i {shlex.quote(os.path.join(frame_dir, 'frame-%03d.tiff'))} -pix_fmt yuv420p -y timelapse.mp4")
+    frame_pattern = re.sub(r'\{:(.+?)\}', r'%\1', frame_pattern)
+    movie_file = "timelapse.mp4"
+    os.system(f"ffmpeg -r 5 -i {shlex.quote(frame_pattern)} -pix_fmt yuv420p -y {movie_file}")
 
 def parse_args():
     args = docopt(__doc__)
