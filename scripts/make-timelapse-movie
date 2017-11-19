@@ -8,6 +8,7 @@ Usage:
 Options:
   -h --help        Show this screen.
   --cropped        Crop the input images.
+  --duration=N     Target length in seconds.
   --frame-dir DIR  Store frames in DIR [default: frames].
   --linger=N       Repeat keyframe images N times [default: 1].
   --interpolate=N  Add N interpolation frames between keyframes [default: 0].
@@ -119,9 +120,10 @@ def interpolate_frames(frames, interpolate=0, linger=1, **kwargs):
             yield frame
         prev_frame = frame
 
-def make_movie(source_dir, frame_dir='frames', **kwargs):
+def make_movie(source_dir, duration=None, frame_dir='frames', **kwargs):
     # maybe someday these become parameters:
     limit = None
+    skip_frame_generation = False
     movie_file = "timelapse.mp4"
 
     files = glob(os.path.join(source_dir, '*'))
@@ -132,23 +134,28 @@ def make_movie(source_dir, frame_dir='frames', **kwargs):
     frame_count = len(files) * (interpolate + linger) - interpolate
     frame_pattern = os.path.join(frame_dir, "frame-{:0%sd}.tiff" % math.ceil(math.log(frame_count)/math.log(10)))
 
-    shutil.rmtree(frame_dir)
-    os.makedirs(frame_dir, exist_ok=True)
-    print(f"Reading {len(files)} key frames; writing {frame_count} output frames")
-    t = tqdm(files)
-    for i, frame in enumerate((interpolate_frames(iter_file_images(t, **kwargs), **kwargs))):
-        outfile = frame_pattern.format(i)
-        t.set_postfix(out=outfile)
-        frame.save(outfile)
+    if not skip_frame_generation:
+        shutil.rmtree(frame_dir)
+        os.makedirs(frame_dir, exist_ok=True)
+        print(f"Reading {len(files)} key frames; writing {frame_count} output frames")
+        t = tqdm(files)
+        for i, frame in enumerate((interpolate_frames(iter_file_images(t, **kwargs), **kwargs))):
+            outfile = frame_pattern.format(i)
+            t.set_postfix(out=outfile)
+            frame.save(outfile)
 
     frame_pattern = re.sub(r'\{:(.+?)\}', r'%\1', frame_pattern)
-    os.system(f"ffmpeg -r 5 -loglevel warning -i {shlex.quote(frame_pattern)} -pix_fmt yuv420p -y {movie_file}")
+    frame_rate = duration or math.ceil( frame_count / duration)
+    print('Writing...', movie_file)
+    os.system(f"ffmpeg -r {frame_rate} -loglevel warning -i {shlex.quote(frame_pattern)} -pix_fmt yuv420p -y {movie_file}")
+    print('done')
 
 def parse_args():
     args = docopt(__doc__)
     schema = Schema({
         'SOURCE_DIR': And(os.path.exists, error='SOURCE_DIR should be a directory'),
         '--cropped': bool,
+        '--duration': Use(int),
         '--frame-dir': str,
         '--help': bool,
         '--interpolate': Use(int),
