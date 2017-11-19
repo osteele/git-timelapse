@@ -4,8 +4,7 @@ git-each-commit:
 * flatten output directory if single file
 
 make-html-timelapse-movie:
-* BUG sometimes doesn't use enough columns
-* create the movie once done
+* PERF use Python to create the movie
 * add a margin
 * skip or fast-forward through nearly similar frames
 * animate change from n -> n+1 columns

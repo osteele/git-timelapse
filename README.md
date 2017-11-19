@@ -52,7 +52,7 @@ Requirements: Install imgkit from <https://wkhtmltopdf.org/downloads.html>
 
 ## `make-timelapse-movie`
 
-Create a movie named `timelapse.mov` that animates the images in the frames
+Create a movie named `timelapse.mp4` that animates the images in the frames
 directory, default `frames`.
 
 Requirements: Python, `pip -f requirements.txt`

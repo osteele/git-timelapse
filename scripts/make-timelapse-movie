@@ -3,13 +3,14 @@
 Make timelapse movie from image frames or text or script versions.
 
 Usage:
-  make-timelapse-movie SOURCE_DIR [--frame-dir=DIR] [--linger=N] [--interpolate=N]
+  make-timelapse-movie [options] SOURCE_DIR
 
 Options:
   -h --help        Show this screen.
-  --frame-dir DIR  Store frames in this directory [default: frames].
-  --linger=n       Repeat keyframe images this many times before moving on [default: 1].
-  --interpolate=n  Add this many interpolation frames between keyframes [default: 0].
+  --cropped        Crop the input images.
+  --frame-dir DIR  Store frames in DIR [default: frames].
+  --linger=N       Repeat keyframe images N times [default: 1].
+  --interpolate=N  Add N interpolation frames between keyframes [default: 0].
 """
 
 import io
@@ -49,7 +50,7 @@ def read_file_image(file):
             raise e
         return text_file_to_image(file)
 
-def cropped(im):
+def cropped_image(im):
     bg = Image.new(im.mode, im.size, WHITE)
     diff = ImageChops.difference(im, bg)
     bbox = diff.getbbox()
@@ -57,33 +58,38 @@ def cropped(im):
         return im.crop(bbox)
     return im
 
-def layout_image(im, cols):
+def layout_image(im, output_size):
     """Layout image im in multiple columns onto a new image with the same proportions."""
     source_width, source_height = im.size
-    dest_frame = Image.new(im.mode, (movie_width * cols, movie_height * cols), color=WHITE)
-    col_width = source_width
-    col_height = dest_frame.size[1]
-    source_tile_y = 0
-    dest_tile_x = 0
-    for col in range(cols):
-        if source_tile_y > source_height and cols > 1:
-            # Starting a new column while out of source material.
-            # We could have gotten by with one fewer columns.
-            return layout_image(im, cols - 1)
-        source_bottom = min(source_tile_y + col_height, source_height)
-        region = im.crop((0, source_tile_y, source_width, source_bottom))
-        dest_frame.paste(region, ((dest_tile_x, 0, dest_tile_x + col_width, source_bottom - source_tile_y)))
-        dest_tile_x += col_width
-        source_tile_y = source_bottom
+    dest_frame = Image.new(im.mode, output_size, color=WHITE)
+    # print(im.size, dest_frame.size)
+    output_width, output_height = output_size
+    col_width, col_height = source_width, output_height
+    source_y = 0
+    dest_x = 0
+    while source_y < source_height and dest_x < output_width:
+        source_bottom = min(source_y + col_height, source_height)
+        region = im.crop((0, source_y, source_width, source_bottom))
+        dest_frame.paste(region, ((dest_x, 0, dest_x + col_width, source_bottom - source_y)))
+        dest_x += col_width
+        source_y = source_bottom
     return dest_frame
 
-def iter_file_images(files):
+def iter_file_images(files, cropped=False, **kwargs):
+    output_width, output_height = movie_width, movie_height
     for file in files:
-        im = cropped(read_file_image(file))
+        im = read_file_image(file)
+        if cropped:
+            im = cropped_image(im)
         w, h = im.size
-        cols = math.ceil(math.sqrt(h / movie_height))
-        frame = layout_image(im, cols)
-        yield frame
+        frame_size = output_width, output_height
+        scale = math.sqrt(w * h / (output_width * output_height))
+        if scale > 1.0:
+            ow, oh = w, math.ceil(output_height * w / output_width)
+            scale = math.ceil(math.sqrt(w * h / (ow * oh)))
+            frame_size = (scale * ow, scale * oh)
+        im = layout_image(im, frame_size)
+        yield im.resize((movie_width, movie_height), Image.ANTIALIAS)
 
 def resize_images_to_lcm(im0, im1):
     """Resize im0 and im1 to the same size."""
@@ -113,28 +119,38 @@ def interpolate_frames(frames, interpolate=0, linger=1, **kwargs):
             yield frame
         prev_frame = frame
 
-def make_movie(source_dir, frame_dir='frames', interpolate=0, linger=1, **kwargs):
+def make_movie(source_dir, frame_dir='frames', **kwargs):
+    # maybe someday these become parameters:
+    limit = None
+    movie_file = "timelapse.mp4"
+
+    files = glob(os.path.join(source_dir, '*'))
+    if limit:
+        files = files[:limit]
+    interpolate = kwargs['interpolate']
+    linger = kwargs['linger']
+    frame_count = len(files) * (interpolate + linger) - interpolate
+    frame_pattern = os.path.join(frame_dir, "frame-{:0%sd}.tiff" % math.ceil(math.log(frame_count)/math.log(10)))
+
     shutil.rmtree(frame_dir)
     os.makedirs(frame_dir, exist_ok=True)
-    files = sorted(glob(os.path.join(source_dir, '*')))
-    out_count = len(files) * (interpolate + linger) - interpolate
-    frame_pattern = os.path.join(frame_dir, "frame-{:03d}.tiff")
-    assert out_count < 1000 # TODO adapt frame_pattern padding
-    print(f"Reading {len(files)} key frames; writing {out_count} output frames")
+    print(f"Reading {len(files)} key frames; writing {frame_count} output frames")
     t = tqdm(files)
-    for i, frame in enumerate((interpolate_frames(iter_file_images(t), **kwargs))):
+    for i, frame in enumerate((interpolate_frames(iter_file_images(t, **kwargs), **kwargs))):
         outfile = frame_pattern.format(i)
         t.set_postfix(out=outfile)
         frame.save(outfile)
+
     frame_pattern = re.sub(r'\{:(.+?)\}', r'%\1', frame_pattern)
-    movie_file = "timelapse.mp4"
-    os.system(f"ffmpeg -r 5 -i {shlex.quote(frame_pattern)} -pix_fmt yuv420p -y {movie_file}")
+    os.system(f"ffmpeg -r 5 -loglevel warning -i {shlex.quote(frame_pattern)} -pix_fmt yuv420p -y {movie_file}")
 
 def parse_args():
     args = docopt(__doc__)
     schema = Schema({
         'SOURCE_DIR': And(os.path.exists, error='SOURCE_DIR should be a directory'),
+        '--cropped': bool,
         '--frame-dir': str,
+        '--help': bool,
         '--interpolate': Use(int),
         '--linger': Use(int),
     })
