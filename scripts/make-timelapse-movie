@@ -28,6 +28,7 @@ import pygments.formatters
 from docopt import docopt
 from PIL import Image, ImageChops
 from schema import Schema, And, Or, Use, SchemaError
+from tqdm import tqdm
 
 WHITE = (255, 255, 255)
 
@@ -112,13 +113,15 @@ def interpolate_frames(frames, interpolate=0, linger=1, **kwargs):
             yield frame
         prev_frame = frame
 
-def make_movie(source_dir, frame_dir='frames', **kwargs):
+def make_movie(source_dir, frame_dir='frames', interpolate=0, linger=1, **kwargs):
     shutil.rmtree(frame_dir)
     os.makedirs(frame_dir, exist_ok=True)
     files = sorted(glob(os.path.join(source_dir, '*')))
-    for i, frame in enumerate(interpolate_frames(iter_file_images(files), **kwargs)):
+    print(f"Reading {len(files)} key frames; writing {len(files) * (interpolate + linger) - interpolate} output frames")
+    t = tqdm(files)
+    for i, frame in enumerate((interpolate_frames(iter_file_images(t), **kwargs))):
         outfile = os.path.join(frame_dir, "frame-{:03d}.tiff".format(i))
-        print('Writing', outfile)
+        t.set_postfix(out=outfile)
         frame.save(outfile)
     os.system(f"ffmpeg -r 5 -i {shlex.quote(os.path.join(frame_dir, 'frame-%03d.tiff'))} -pix_fmt yuv420p -y timelapse.mp4")
 
