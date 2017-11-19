@@ -33,20 +33,20 @@ WHITE = (255, 255, 255)
 
 movie_width, movie_height = 1024, 768
 
-def text_file_to_image(infile):
-    lexer = pygments.lexers.get_lexer_for_filename(infile)
+def text_file_to_image(file):
+    lexer = pygments.lexers.get_lexer_for_filename(file)
     formatter = pygments.formatters.get_formatter_by_name('bmp', line_numbers=False)
-    with open(infile) as fd:
+    with open(file) as fd:
         data = pygments.highlight(fd.read(), lexer, formatter)
     return Image.open(io.BytesIO(data))
 
-def read_file_image(infile):
+def read_file_image(file):
     try:
-        return Image.open(infile)
+        return Image.open(file)
     except OSError as e:
         if 'cannot identify image file' not in str(e):
             raise e
-        return text_file_to_image(infile)
+        return text_file_to_image(file)
 
 def cropped(im):
     bg = Image.new(im.mode, im.size, WHITE)
@@ -56,7 +56,8 @@ def cropped(im):
         return im.crop(bbox)
     return im
 
-def make_frame(im, cols):
+def layout_image(im, cols):
+    """Layout image im in multiple columns onto a new image with the same proportions."""
     source_width, source_height = im.size
     dest_frame = Image.new(im.mode, (movie_width * cols, movie_height * cols), color=WHITE)
     col_width = source_width
@@ -67,7 +68,7 @@ def make_frame(im, cols):
         if source_tile_y > source_height and cols > 1:
             # Starting a new column while out of source material.
             # We could have gotten by with one fewer columns.
-            return make_frame(im, cols - 1)
+            return layout_image(im, cols - 1)
         source_bottom = min(source_tile_y + col_height, source_height)
         region = im.crop((0, source_tile_y, source_width, source_bottom))
         dest_frame.paste(region, ((dest_tile_x, 0, dest_tile_x + col_width, source_bottom - source_tile_y)))
@@ -75,20 +76,22 @@ def make_frame(im, cols):
         source_tile_y = source_bottom
     return dest_frame
 
-def make_frames(files):
-    for infile in files:
-        im = cropped(read_file_image(infile))
+def iter_file_images(files):
+    for file in files:
+        im = cropped(read_file_image(file))
         w, h = im.size
         cols = math.ceil(math.sqrt(h / movie_height))
-        frame = make_frame(im, cols)
+        frame = layout_image(im, cols)
         yield frame
 
 def resize_images_to_lcm(im0, im1):
+    """Resize im0 and im1 to the same size."""
     if im0.size == im1.size:
         return im0, im1
-    w0, w1 = im0.size[0], im1.size[0]
-    h0, h1 = im0.size[1], im1.size[1]
-    s = w1 / gcd(gcd(w0, w1), gcd(h0, h1))
+    w0, h0 = im0.size
+    w1, h1 = im1.size
+    assert w0 / h0 == w1 / h1
+    s = w1 / gcd(w0, w1)
     w = int(s * w0)
     h = int(s * h0)
     size = (w, h)
@@ -96,10 +99,10 @@ def resize_images_to_lcm(im0, im1):
     im1 = im1.resize(size, Image.ANTIALIAS)
     return im0, im1
 
-def interpolate_frames(frames, *, interpolate=0, linger=1, **kwargs):
+def interpolate_frames(frames, interpolate=0, linger=1, **kwargs):
     prev_frame = None
     for frame in frames:
-        if prev_frame:
+        if prev_frame and interpolate > 0:
             im0, im1 = resize_images_to_lcm(prev_frame, frame)
             for i in range(interpolate):
                 s = i / interpolate
@@ -109,17 +112,17 @@ def interpolate_frames(frames, *, interpolate=0, linger=1, **kwargs):
             yield frame
         prev_frame = frame
 
-def convert(source_dir, frame_dir='frames', **kwargs):
+def make_movie(source_dir, frame_dir='frames', **kwargs):
     shutil.rmtree(frame_dir)
     os.makedirs(frame_dir, exist_ok=True)
     files = sorted(glob(os.path.join(source_dir, '*')))
-    for i, frame in enumerate(interpolate_frames(make_frames(files), **kwargs)):
+    for i, frame in enumerate(interpolate_frames(iter_file_images(files), **kwargs)):
         outfile = os.path.join(frame_dir, "frame-{:03d}.tiff".format(i))
         print('Writing', outfile)
         frame.save(outfile)
     os.system(f"ffmpeg -r 5 -i {shlex.quote(os.path.join(frame_dir, 'frame-%03d.tiff'))} -pix_fmt yuv420p -y timelapse.mp4")
 
-if __name__ == '__main__':
+def parse_args():
     args = docopt(__doc__)
     schema = Schema({
         'SOURCE_DIR': And(os.path.exists, error='SOURCE_DIR should be a directory'),
@@ -131,5 +134,8 @@ if __name__ == '__main__':
         args = schema.validate(args)
     except SchemaError as e:
         exit(e)
-    args = {re.sub(r'^--', '', k): v for k, v in args.items()}
-    convert(args['SOURCE_DIR'], **args)
+    return {re.sub(r'^--', '', k): v for k, v in args.items()}
+
+if __name__ == '__main__':
+    args = parse_args()
+    make_movie(args['SOURCE_DIR'], **args)
