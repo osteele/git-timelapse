@@ -24,13 +24,12 @@ Output files are collected into subdirectories `git-each-build/$isodate`, where 
 
 Examples:
 
-`git-each-build -- tree`
-
-`git-each-build -- cloc .`
-
-`git-each-build pages/resources.md -- snapshot-jekyll-html resources`
-
-`git-each-build pages/resources.md -- snapshot-jekyll-page resources`
+```bash
+git-each-build --stdout -- tree
+git-each-build --stdout -- cloc .
+git-each-build pages/resources.md -- snapshot-jekyll-html resources
+git-each-build pages/resources.md -- snapshot-jekyll-page resources
+```
 
 If each build subdirectory contains only a single file (for example, `stdout.txt`),
 you can flatten it in bash via:

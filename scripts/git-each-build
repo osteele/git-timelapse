@@ -23,10 +23,16 @@ def parse_options!
     opts.on("-d", "--dir DIR", "Repository working directory") do |dir|
         options[:dir] = dir
     end
+    opts.on("-f", "--force", "git clean and git checkout --force") do |flag|
+        options[:force] = flag
+    end
+    opts.on("--stdout", "Capture command output to stdout.txt") do |flag|
+        options[:stdout] = flag
+    end
     end.parse!(args)
 
-    options[:files] = args
     options[:cmd] = cmd
+    options[:files] = args
     return options
 end
 
@@ -48,15 +54,22 @@ end
 
 FOLLOW = if options[:files].size == 1 then '--follow' else nil end
 
-for h, d in `git log #{FOLLOW} --format='%H %aI' --date=iso -- #{Shellwords.join options[:files]}`.scan /^(\S+) (.+)$/ do
+for h, d in `git log --reverse --format='%H %aI' --date=iso #{FOLLOW} -- #{Shellwords.join options[:files]}`.scan /^(\S+) (.+)$/ do
     tmp_build_dir = Dir.mktmpdir
     puts "Checking out HEAD For #{Time.parse(d)}"
-    system "git checkout #{h}"
+    if options[:force]
+        system "git clean -f"
+        system "git checkout -f #{h}"
+    else
+        system "git checkout #{h}"
+    end
     ENV['GIT_EACH_HASH'] = h
     ENV['GIT_EACH_BUILD_DIR'] = tmp_build_dir
+    out = `#{Shellwords.join options[:cmd]}`
+    puts out if $?.exitstatus != 0
     open File.join(tmp_build_dir, 'stdout.txt'), 'w' do |f|
-        f.puts `#{Shellwords.join options[:cmd]}`
-    end
+        f.write(out)
+    end if options[:stdout]
     FileUtils.mv tmp_build_dir, File.join(build_dir, d)
 end
 
