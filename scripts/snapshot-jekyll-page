@@ -3,7 +3,11 @@
 html_file=_site/$1
 out=$GIT_EACH_BUILD_DIR/page.png
 
-bundle exec jekyll build
+if [[ -f Gemfile ]]; then
+    bundle exec jekyll build
+else
+    jekyll build
+fi
 
 if [[ -d $html_file && -f $html_file/index.html ]]; then
     html_file=$html_file/index.html
