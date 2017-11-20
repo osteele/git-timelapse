@@ -122,12 +122,21 @@ def interpolate_frames(frames, interpolate=0, linger=1, **kwargs):
             yield frame
         prev_frame = frame
 
+def locate_child(file):
+    if os.path.isdir(file):
+        files = glob(os.path.join(file, '*'))
+        if len(files) > 1:
+            files.remove('stdout.txt')
+        if len(files) == 1:
+            return files[0]
+    return file
+
 def make_movie(source_dir, duration=None, frame_dir='frames', limit=None, **kwargs):
     # maybe someday these become parameters:
     skip_frame_generation = False
     movie_file = "timelapse.mp4"
 
-    files = glob(os.path.join(source_dir, '*'))
+    files = [locate_child(file) for file in sorted(glob(os.path.join(source_dir, '*')))]
     if limit:
         files = files[:limit]
     interpolate = kwargs['interpolate']
