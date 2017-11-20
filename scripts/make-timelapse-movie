@@ -145,17 +145,17 @@ def make_movie(source_dir, duration=None, frame_dir='frames', **kwargs):
             frame.save(outfile)
 
     frame_pattern = re.sub(r'\{:(.+?)\}', r'%\1', frame_pattern)
-    frame_rate = duration or math.ceil( frame_count / duration)
-    print('Writing...', movie_file)
-    os.system(f"ffmpeg -r {frame_rate} -loglevel warning -i {shlex.quote(frame_pattern)} -pix_fmt yuv420p -y {movie_file}")
-    print('done')
+    fps = math.ceil( frame_count / duration) if duration else 10
+    print(f'Writing {movie_file}...', end="")
+    os.system(f"ffmpeg -r {fps} -loglevel warning -i {shlex.quote(frame_pattern)} -pix_fmt yuv420p -y {movie_file}")
+    print('done.')
 
 def parse_args():
     args = docopt(__doc__)
     schema = Schema({
         'SOURCE_DIR': And(os.path.exists, error='SOURCE_DIR should be a directory'),
         '--cropped': bool,
-        '--duration': Use(int),
+        '--duration': Or(None, Use(int)),
         '--frame-dir': str,
         '--help': bool,
         '--interpolate': Use(int),
