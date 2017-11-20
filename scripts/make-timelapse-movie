@@ -11,6 +11,7 @@ Options:
   --duration=N     Target length in seconds.
   --frame-dir DIR  Store frames in DIR [default: frames].
   --linger=N       Repeat keyframe images N times [default: 1].
+  --limit=N        Use only the first N keyframes.
   --interpolate=N  Add N interpolation frames between keyframes [default: 0].
 """
 
@@ -120,9 +121,8 @@ def interpolate_frames(frames, interpolate=0, linger=1, **kwargs):
             yield frame
         prev_frame = frame
 
-def make_movie(source_dir, duration=None, frame_dir='frames', **kwargs):
+def make_movie(source_dir, duration=None, frame_dir='frames', limit=None, **kwargs):
     # maybe someday these become parameters:
-    limit = None
     skip_frame_generation = False
     movie_file = "timelapse.mp4"
 
@@ -159,6 +159,7 @@ def parse_args():
         '--frame-dir': str,
         '--help': bool,
         '--interpolate': Use(int),
+        '--limit': Or(None, Use(int)),
         '--linger': Use(int),
     })
     try:
