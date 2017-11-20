@@ -28,7 +28,9 @@ Examples:
 
 `git-each-build -- cloc .`
 
-`git-each-build page/resources.md -- snapshot-jekyll-page resources`
+`git-each-build pages/resources.md -- snapshot-jekyll-html resources`
+
+`git-each-build pages/resources.md -- snapshot-jekyll-page resources`
 
 If each build subdirectory contains only a single file (for example, `stdout.txt`),
 you can flatten it in bash via:

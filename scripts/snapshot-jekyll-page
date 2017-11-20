@@ -1,5 +1,12 @@
 #!/usr/bin/env bash -eu
 
+html_file=_site/$1
+out=$GIT_EACH_BUILD_DIR/page.png
+
 bundle exec jekyll build
-echo cp -r "_site/$1" "$GIT_EACH_BUILD_DIR"
-cp -r "_site/$1" "$GIT_EACH_BUILD_DIR"
+
+if [[ -d $html_file && -f $html_file/index.html ]]; then
+    html_file=$html_file/index.html
+fi
+
+wkhtmltoimage -q "$html_file" "$out" || echo "Failed to convert $html_file"
