@@ -64,7 +64,6 @@ def layout_image(im, output_size):
     """Layout image im in multiple columns onto a new image with the same proportions."""
     source_width, source_height = im.size
     dest_frame = Image.new(im.mode, output_size, color=WHITE)
-    # print(im.size, dest_frame.size)
     output_width, output_height = output_size
     col_width, col_height = source_width, output_height
     source_y = 0
@@ -79,16 +78,18 @@ def layout_image(im, output_size):
 
 def iter_file_images(files, cropped=False, **kwargs):
     output_width, output_height = movie_width, movie_height
+    min_scale = 0
     for file in files:
         im = read_file_image(file)
         if cropped:
             im = cropped_image(im)
         w, h = im.size
         frame_size = output_width, output_height
-        scale = math.sqrt(w * h / (output_width * output_height))
+        scale = max(min_scale, math.sqrt(w * h / (output_width * output_height)))
         if scale > 1.0:
             ow, oh = w, math.ceil(output_height * w / output_width)
-            scale = math.ceil(math.sqrt(w * h / (ow * oh)))
+            scale = max(min_scale, math.ceil(math.sqrt(w * h / (ow * oh))))
+            min_scale = scale
             frame_size = (scale * ow, scale * oh)
         im = layout_image(im, frame_size)
         yield im.resize((movie_width, movie_height), Image.ANTIALIAS)
