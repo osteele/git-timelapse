@@ -1,7 +1,8 @@
 git-each-commit:
+* show progress
+* flatten output directory if single file
 * follow multiple files
 * refuse to check out over modified working directory
-* flatten output directory if single file
 
 make-html-timelapse-movie:
 * PERF use Python to create the movie

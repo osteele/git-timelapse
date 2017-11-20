@@ -1,12 +1,30 @@
 #!/usr/bin/env bash -eu
 
+dir=$1
+dry_run=
+verbose=false
+rm_cmd=rm
+if [[ $dir == -n || ${2:-} == -n ]]; then
+    dry_run=1
+    verbose=true
+    rm_cmd='echo rm'
+    if [[ $dir == -n ]]; then
+        dir=$2
+    fi
+fi
+
+verbose() {
+    $verbose && echo $@
+}
+
 prev=
-for file in $1/*; do
+for file in $dir/*; do
     if [[ -d "$file" ]]; then
         hash=$(cd "$file" && find . -type f -exec md5sum {} \+ | md5sum | cut -f1 -d' ')
     else
         hash=$(md5sum "$file" | cut -f1 -d' ')
     fi
-    [ "$hash" == "$prev" ] && rm -rf $file
+    [ "$hash" == "$prev" ] || verbose "# skip $file"
+    [ "$hash" == "$prev" ] && $rm_cmd -rf $file
     prev=$hash
 done
